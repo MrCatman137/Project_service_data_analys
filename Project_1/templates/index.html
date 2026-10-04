@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vietnam Housing Valuation</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+  <div class="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950">
+    <header class="border-b border-white/10">
+      <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p class="text-sm font-semibold uppercase tracking-[0.25em] text-indigo-300">ML Valuation Platform</p>
+            <h1 class="mt-1 text-3xl font-bold tracking-tight md:text-4xl">Vietnam Residential Property Valuation</h1>
+            <p class="mt-2 max-w-2xl text-slate-300">Instant price estimation powered by an ensemble regression pipeline.</p>
+          </div>
+          <div id="datasetSummary" class="grid grid-cols-2 gap-2 text-sm"></div>
+        </div>
+      </div>
+    </header>
+
+    <main class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div class="grid gap-6 lg:grid-cols-[380px_1fr]">
+        <section class="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur">
+          <h2 class="text-xl font-semibold">Property inputs</h2>
+          <p class="mt-1 text-sm text-slate-400">Provide the property characteristics for an instant estimate.</p>
+
+          <form id="valuationForm" class="mt-5 space-y-4">
+            <div>
+              <label class="label">Address</label>
+              <input id="Address" class="field" placeholder="Project, Ward, District, Province">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div><label class="label">Area (m²)</label><input id="Area" type="number" min="1" step="0.1" required class="field"></div>
+              <div><label class="label">Frontage (m)</label><input id="Frontage" type="number" min="0" step="0.1" class="field"></div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div><label class="label">Access Road (m)</label><input id="AccessRoad" type="number" min="0" step="0.1" class="field"></div>
+              <div><label class="label">Floors</label><input id="Floors" type="number" min="0" step="1" value="2" class="field"></div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div><label class="label">Bedrooms</label><input id="Bedrooms" type="number" min="0" step="1" value="3" class="field"></div>
+              <div><label class="label">Bathrooms</label><input id="Bathrooms" type="number" min="0" step="1" value="2" class="field"></div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div><label class="label">Province</label><select id="Province" class="field"></select></div>
+              <div><label class="label">House direction</label><select id="HouseDirection" class="field"></select></div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div><label class="label">Legal status</label><select id="LegalStatus" class="field"></select></div>
+              <div><label class="label">Furniture state</label><select id="FurnitureState" class="field"></select></div>
+            </div>
+
+            <button id="submitBtn" type="submit" class="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-500 px-4 py-3 font-semibold transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60">
+              <span id="spinner" class="hidden h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"></span>
+              <span>Instant Valuation</span>
+            </button>
+            <p id="errorBox" class="hidden rounded-xl border border-red-400/20 bg-red-400/10 p-3 text-sm text-red-200"></p>
+          </form>
+        </section>
+
+        <section class="space-y-6">
+          <div class="grid gap-4 sm:grid-cols-3">
+            <div class="rounded-2xl border border-white/10 bg-white/5 p-5">
+              <p class="text-sm text-slate-400">Estimated valuation</p>
+              <p id="price" class="mt-2 text-3xl font-bold">—</p>
+              <p id="usd" class="mt-1 text-sm text-slate-400">USD equivalent: —</p>
+            </div>
+            <div class="rounded-2xl border border-white/10 bg-white/5 p-5">
+              <p class="text-sm text-slate-400">Tolerance range</p>
+              <p id="range" class="mt-2 text-lg font-semibold">—</p>
+              <p class="mt-1 text-xs text-slate-500">Adaptive ±6%</p>
+            </div>
+            <div class="rounded-2xl border border-white/10 bg-white/5 p-5">
+              <p class="text-sm text-slate-400">Model confidence</p>
+              <p id="confidence" class="mt-2 text-3xl font-bold">—</p>
+              <p class="mt-1 text-xs text-slate-500">UI indicator based on validation MAPE</p>
+            </div>
+          </div>
+
+          <div class="grid gap-6 xl:grid-cols-2">
+            <div class="rounded-2xl border border-white/10 bg-white/5 p-5">
+              <h3 class="font-semibold">Valuation interval</h3>
+              <div class="mt-5 h-72"><canvas id="rangeChart"></canvas></div>
+            </div>
+            <div class="rounded-2xl border border-white/10 bg-white/5 p-5">
+              <h3 class="font-semibold">Top feature importances</h3>
+              <div class="mt-5 h-72"><canvas id="importanceChart"></canvas></div>
+            </div>
+          </div>
+
+          <div class="rounded-2xl border border-white/10 bg-white/5 p-5">
+            <h3 class="font-semibold">Parsed feature summary</h3>
+            <pre id="parsed" class="mt-3 overflow-auto rounded-xl bg-black/20 p-4 text-sm text-slate-300">Submit a property to see engineered features.</pre>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+<script>
+const styles = `
+.label { display:block; margin-bottom:.4rem; font-size:.75rem; font-weight:600; color:#cbd5e1; }
+.field { width:100%; border-radius:.75rem; border:1px solid rgba(255,255,255,.12); background:rgba(15,23,42,.8); padding:.65rem .75rem; color:#f8fafc; outline:none; }
+.field:focus { border-color:rgba(129,140,248,.8); box-shadow:0 0 0 3px rgba(99,102,241,.15); }
+`;
+document.head.insertAdjacentHTML("beforeend", `<style>${styles}</style>`);
+
+let rangeChart, importanceChart;
+const money = (v) => `${Number(v).toFixed(3)} B VND`;
+const usd = (v) => `$${(Number(v) * 1e9 / 26000).toLocaleString(undefined, {maximumFractionDigits:0})}`;
+
+function fillSelect(id, values) {
+  const el = document.getElementById(id);
+  el.innerHTML = '<option value="">Unknown</option>' + (values || []).map(v =>
+    `<option value="${String(v).replaceAll('"','&quot;')}">${String(v)}</option>`).join("");
+}
+
+async function loadMetadata() {
+  const res = await fetch("/api/metadata");
+  const data = await res.json();
+  if (data.status !== "success") throw new Error("Unable to load metadata.");
+
+  const o = data.categorical_options || {};
+  fillSelect("Province", o.provinces);
+  fillSelect("HouseDirection", o.house_direction);
+  fillSelect("LegalStatus", o.legal_status);
+  fillSelect("FurnitureState", o.furniture_state);
+
+  document.getElementById("datasetSummary").innerHTML = `
+    <div class="rounded-xl border border-white/10 bg-white/5 px-4 py-2"><span class="text-slate-400">Rows</span><br><b>${Number(data.dataset?.rows || 0).toLocaleString()}</b></div>
+    <div class="rounded-xl border border-white/10 bg-white/5 px-4 py-2"><span class="text-slate-400">Model</span><br><b>${data.model || "—"}</b></div>`;
+  drawImportance(data.top_feature_importances || []);
+}
+
+function drawImportance(items) {
+  const top = items.slice(0, 5).reverse();
+  if (importanceChart) importanceChart.destroy();
+  importanceChart = new Chart(document.getElementById("importanceChart"), {
+    type: "bar",
+    data: { labels: top.map(x => x.feature), datasets: [{ label: "Importance", data: top.map(x => x.importance) }] },
+    options: { indexAxis: "y", responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+      scales:{x:{beginAtZero:true, ticks:{color:"#94a3b8"}}, y:{ticks:{color:"#cbd5e1"}}} }
+  });
+}
+
+function drawRange(min, pred, max) {
+  if (rangeChart) rangeChart.destroy();
+  rangeChart = new Chart(document.getElementById("rangeChart"), {
+    type:"bar",
+    data:{ labels:["Min","Predicted","Max"], datasets:[{label:"Billion VND", data:[min,pred,max]}] },
+    options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+      scales:{y:{beginAtZero:true, ticks:{color:"#94a3b8"}}, x:{ticks:{color:"#cbd5e1"}}}}
+  });
+}
+
+document.getElementById("valuationForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = document.getElementById("submitBtn");
+  const spinner = document.getElementById("spinner");
+  const error = document.getElementById("errorBox");
+  error.classList.add("hidden");
+  button.disabled = true; spinner.classList.remove("hidden");
+
+  const payload = {
+    Address: document.getElementById("Address").value,
+    Area: document.getElementById("Area").value,
+    Frontage: document.getElementById("Frontage").value,
+    "Access Road": document.getElementById("AccessRoad").value,
+    Floors: document.getElementById("Floors").value,
+    Bedrooms: document.getElementById("Bedrooms").value,
+    Bathrooms: document.getElementById("Bathrooms").value,
+    Province: document.getElementById("Province").value,
+    "House direction": document.getElementById("HouseDirection").value,
+    "Legal status": document.getElementById("LegalStatus").value,
+    "Furniture state": document.getElementById("FurnitureState").value
+  };
+
+  try {
+    const res = await fetch("/predict/price", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)});
+    const data = await res.json();
+    if (!res.ok || data.status !== "success") throw new Error(data.error?.message || "Prediction failed.");
+
+    document.getElementById("price").textContent = money(data.predicted_price);
+    document.getElementById("usd").textContent = `USD equivalent: ${usd(data.predicted_price)}`;
+    document.getElementById("range").textContent = `${money(data.price_range.min)} ↔ ${money(data.price_range.max)}`;
+    document.getElementById("confidence").textContent = `${Number(data.confidence).toFixed(1)}%`;
+    document.getElementById("parsed").textContent = JSON.stringify(data.features_parsed, null, 2);
+    drawRange(data.price_range.min, data.predicted_price, data.price_range.max);
+  } catch (err) {
+    error.textContent = err.message;
+    error.classList.remove("hidden");
+  } finally {
+    button.disabled = false; spinner.classList.add("hidden");
+  }
+});
+
+loadMetadata().catch(err => {
+  document.getElementById("errorBox").textContent = err.message;
+  document.getElementById("errorBox").classList.remove("hidden");
+});
+</script>
+</body>
+</html>

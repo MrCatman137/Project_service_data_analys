@@ -1,0 +1,13 @@
+services:
+  vietnam-house-valuation:
+    build: .
+    container_name: vietnam-house-valuation
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+    environment:
+      PORT: "5000"
+      MODEL_PATH: "/app/models/vietnam_house_pipeline.pkl"
+      METADATA_PATH: "/app/models/feature_metadata.json"
+    volumes:
+      - ./models:/app/models:ro

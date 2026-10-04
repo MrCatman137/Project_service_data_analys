@@ -1,0 +1,14 @@
+.git
+.venv
+venv
+**/.venv
+**/venv
+__pycache__
+**/__pycache__
+*.py[cod]
+.pytest_cache
+.mypy_cache
+.ruff_cache
+tests
+reports/eda
+vietnam_housing_dataset.csv

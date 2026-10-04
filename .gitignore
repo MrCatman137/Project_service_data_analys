@@ -1,0 +1,5 @@
+venv
+*.csv
+__pycache__
+reports/
+models/
